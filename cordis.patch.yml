@@ -1,0 +1,49 @@
+# dsh-llama-cpp-sampling-params — bundle patch.
+#
+# Registers the plugin on the host. The plugin wraps globalThis.fetch to
+# intercept chat-completions requests and stamp the matching sampling set
+# onto the wire body before it leaves the process.
+# The config block below is the BASE layer: a `sampling-params:` section in
+# $DSH_HOME/settings.yaml overrides it without a restart.
+- insert:
+    - id: sampling-params
+      name: dsh-llama-cpp-sampling-params
+      config:
+        # One entry per model. Key = the exact model id (alias) sent on the
+        # wire (the `model` field in the chat-completions request body).
+        #
+        # The plugin never hardcodes an LLM port — it matches on the
+        # /v1/chat/completions path in the request URL. Host and port come
+        # from dsh's provider baseURL (e.g. llm-pi-ai.providers.llama.baseURL).
+        #
+        # Wire field names (llama.cpp): temperature, top_p, top_k, min_p,
+        # repeat_penalty (NOT repetition_penalty), presence_penalty,
+        # frequency_penalty. Each model is a complete set — all fields required.
+        #
+        # Example (keys are placeholders):
+        #   models:
+        #     model-t:   # Think
+        #       temperature: 0.6
+        #       top_p: 0.95
+        #       top_k: 20
+        #       min_p: 0.05
+        #       repeat_penalty: 1.0
+        #       presence_penalty: 0.0
+        #       frequency_penalty: 0.0
+        #     model-i:   # Instruct
+        #       temperature: 0.2
+        #       top_p: 0.8
+        #       top_k: 20
+        #       min_p: 0.05
+        #       repeat_penalty: 1.0
+        #       presence_penalty: 0.0
+        #       frequency_penalty: 0.0
+        #     model-p:   # Planner
+        #       temperature: 1.0
+        #       top_p: 0.95
+        #       top_k: 20
+        #       min_p: 0.0
+        #       repeat_penalty: 1.0
+        #       presence_penalty: 0.0
+        #       frequency_penalty: 0.0
+        models: {}
