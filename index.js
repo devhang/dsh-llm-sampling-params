@@ -28,7 +28,6 @@
  * is one dsh never sends, so there is no competing source.
  */
 import z from "@deepseek-ai/schemastery";
-import { settingsNamespace } from "@deepseek-ai/dsh-settings";
 
 const name = "sampling-params";
 const inject = ["settings"];
@@ -81,8 +80,11 @@ function apply(ctx, config = {}) {
   const log = ctx.logger("sampling-params");
 
   // Register the settings section live so role values can be edited without
-  // a restart.
-  const scope = ctx.settings.register(settingsNamespace("sampling-params"), Config, {
+  // a restart. NOTE: we pass the namespace as a plain string, not via
+  // `settingsNamespace()` from @deepseek-ai/dsh-settings — the export was
+  // added in 0.1.1 and is absent in some older/newer versions, so importing
+  // it directly breaks plugin load on those dsh builds.
+  const scope = ctx.settings.register("sampling-params", Config, {
     base: config,
     applies: "live",
   });
