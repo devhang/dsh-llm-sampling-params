@@ -1,78 +1,118 @@
-// Verify the provider/model → sampling injection. The plugin intercepts the
-// `llm/stream` waterfall, reads options.provider + options.model, and installs
-// an `onPayload` hook that stamps the matching sampling set onto the wire body.
+// Unit test: verify the fetch wrapper injects sampling params into the
+// chat-completions wire body based on the model alias.
 // Alias names are placeholders — swap to your own llama.cpp aliases.
 import { fileURLToPath } from "node:url";
 
 const plugin = await import(new URL("./index.js", import.meta.url).href);
 
-// Simulate a configured sampling-params section: provider-qualified + bare keys.
+// Simulate a configured sampling-params section.
 const section = {
   models: {
-    "llama:model-t": { temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.0, presence_penalty: 0.0, frequency_penalty: 0.0 },
-    "nvidia:model-t": { temperature: 1.0, top_p: 0.9, top_k: 50, min_p: 0.0, repeat_penalty: 1.1, presence_penalty: 0.5, frequency_penalty: 0.5 },
+    "model-t": { temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.05, repeat_penalty: 1.0, presence_penalty: 0.0, frequency_penalty: 0.0 },
     "model-i": { temperature: 0.2, top_p: 0.8, top_k: 20, min_p: 0.05, repeat_penalty: 1.0, presence_penalty: 0.0, frequency_penalty: 0.0 },
+    "model-p": { temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0, presence_penalty: 0.0, frequency_penalty: 0.0 },
   },
 };
 
-// Capture the llm/stream listener registered by the plugin.
-let capturedListener = null;
+// Capture the wrapped fetch.
+let capturedFetch = null;
 const ctx = {
   logger: () => ({ warn: () => {}, info: () => {} }),
   settings: { register: () => ({ get: () => section }) },
-  on: (event, listener) => { if (event === "llm/stream") capturedListener = listener; },
 };
+
+// Stub globalThis.fetch so the plugin wraps it.
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async function (input, init) {
+  capturedFetch = { input, init };
+  return new Response("{}", { status: 200 });
+};
+
 plugin.apply(ctx, {});
 
-// Run the listener as dsh does: (options, next). Returns the onPayload hook.
-async function run(options) {
-  let nextCalled = false;
-  await capturedListener(options, () => { nextCalled = true; });
-  return { onPayload: options.onPayload, nextCalled };
+// Restore original fetch after apply.
+const wrappedFetch = globalThis.fetch;
+globalThis.fetch = originalFetch;
+
+// Helper: call the wrapped fetch with a chat-completions body, return the modified body.
+async function callFetch(model) {
+  capturedFetch = null;
+  const body = { model, messages: [{ role: "user", content: "hi" }], temperature: 1.0 };
+  await wrappedFetch("http://127.0.0.1:8181/v1/chat/completions", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return JSON.parse(capturedFetch.init.body);
 }
 
-// Case 1: provider:model composite match (llama:model-t).
+const WIRE_KEYS = ["temperature", "top_p", "top_k", "min_p", "repeat_penalty", "presence_penalty", "frequency_penalty"];
+let allPassed = true;
+
+// Case 1: model-t (think) — should inject think sampling.
 {
-  const o = { provider: "llama", model: "model-t" };
-  const { onPayload, nextCalled } = await run(o);
-  const wire = { model: "model-t", messages: [] };
-  onPayload?.(wire, { provider: "llama", id: "model-t" });
-  console.log("=== llama:model-t (composite) ===");
-  for (const k of ["temperature", "top_p", "top_k", "min_p", "repeat_penalty", "presence_penalty", "frequency_penalty"]) {
-    const expected = section.models["llama:model-t"][k];
+  const wire = await callFetch("model-t");
+  console.log("=== model-t (think) ===");
+  for (const k of WIRE_KEYS) {
+    const expected = section.models["model-t"][k];
     const actual = wire[k];
-    console.log(`  ${k.padEnd(20)} expected=${expected}  actual=${actual}  ${expected === actual ? "✅" : "❌"}`);
+    const ok = expected === actual;
+    if (!ok) allPassed = false;
+    console.log(`  ${k.padEnd(20)} expected=${expected}  actual=${actual}  ${ok ? "✅" : "❌"}`);
   }
-  console.log("  next() called:", nextCalled);
 }
 
-// Case 2: same model id under a different provider — composite distinguishes.
+// Case 2: model-i (instruct) — should inject instruct sampling.
 {
-  const o = { provider: "nvidia", model: "model-t" };
-  const { onPayload } = await run(o);
-  const wire = { model: "model-t", messages: [] };
-  onPayload?.(wire, { provider: "nvidia", id: "model-t" });
-  console.log("\n=== nvidia:model-t (same model id, different provider) ===");
-  console.log(`  temperature=${wire.temperature} (expected 1.0)  top_p=${wire.top_p} (expected 0.9)`);
-  console.log(`  provider distinguished: ${wire.temperature === 1.0 ? "✅" : "❌"}`);
+  const wire = await callFetch("model-i");
+  console.log("\n=== model-i (instruct) ===");
+  for (const k of WIRE_KEYS) {
+    const expected = section.models["model-i"][k];
+    const actual = wire[k];
+    const ok = expected === actual;
+    if (!ok) allPassed = false;
+    console.log(`  ${k.padEnd(20)} expected=${expected}  actual=${actual}  ${ok ? "✅" : "❌"}`);
+  }
 }
 
-// Case 3: bare model fallback (no composite entry for this provider).
+// Case 3: model-p (planner) — should inject planner sampling.
 {
-  const o = { provider: "deepseek", model: "model-i" };
-  const { onPayload } = await run(o);
-  const wire = { model: "model-i", messages: [] };
-  onPayload?.(wire, { provider: "deepseek", id: "model-i" });
-  console.log("\n=== deepseek:model-i (bare fallback) ===");
-  console.log(`  temperature=${wire.temperature} (expected 0.2)  top_p=${wire.top_p} (expected 0.8)`);
-  console.log(`  fallback matched: ${wire.temperature === 0.2 ? "✅" : "❌"}`);
+  const wire = await callFetch("model-p");
+  console.log("\n=== model-p (planner) ===");
+  for (const k of WIRE_KEYS) {
+    const expected = section.models["model-p"][k];
+    const actual = wire[k];
+    const ok = expected === actual;
+    if (!ok) allPassed = false;
+    console.log(`  ${k.padEnd(20)} expected=${expected}  actual=${actual}  ${ok ? "✅" : "❌"}`);
+  }
 }
 
-// Case 4: no matching sampling — passthrough, no onPayload.
+// Case 4: unconfigured model — should pass through unchanged.
 {
-  const o = { provider: "llama", model: "unconfigured" };
-  const { onPayload, nextCalled } = await run(o);
-  console.log("\n=== llama:unconfigured (no match) ===");
-  console.log("  onPayload set:", onPayload !== undefined, "(should be false)");
-  console.log("  next() called:", nextCalled, "(should be true)");
+  const wire = await callFetch("unconfigured");
+  console.log("\n=== unconfigured (passthrough) ===");
+  const hasTopP = "top_p" in wire;
+  const ok = !hasTopP;
+  if (!ok) allPassed = false;
+  console.log(`  top_p absent: ${ok ? "✅" : "❌"}`);
+  console.log(`  temperature unchanged: ${wire.temperature === 1.0 ? "✅" : "❌"}`);
 }
+
+// Case 5: non-chat-completions URL — should pass through unchanged.
+{
+  capturedFetch = null;
+  const body = { model: "model-t", prompt: "hi" };
+  await wrappedFetch("http://127.0.0.1:8181/v1/completion", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  const wire = JSON.parse(capturedFetch.init.body);
+  console.log("\n=== /v1/completion (non-target URL) ===");
+  const hasTopP = "top_p" in wire;
+  const ok = !hasTopP;
+  if (!ok) allPassed = false;
+  console.log(`  top_p absent: ${ok ? "✅" : "❌"}`);
+}
+
+console.log(`\n${allPassed ? "✅ ALL TESTS PASSED" : "❌ SOME TESTS FAILED"}`);
+process.exit(allPassed ? 0 : 1);
