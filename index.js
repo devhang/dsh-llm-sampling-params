@@ -38,6 +38,9 @@
  * is one dsh never sends, so there is no competing source.
  */
 import z from "@deepseek-ai/schemastery";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 const name = "sampling-params";
 const inject = ["settings"];
@@ -93,9 +96,23 @@ const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
 // instead and this only holds the initial value.
 let liveConfig = { models: {} };
 
+// Debug switch (best-effort): when enabled, every injection appends one JSON
+// line to ~/.dsh/_sampling-debug.log so you can confirm the outgoing body
+// actually carries the sampling params. Enable with env DSH_SAMPLING_DEBUG=1
+// or by creating the marker file ~/.dsh/_sampling-debug-on; disable by
+// unsetting the env / deleting the file (takes effect on the next apply()).
+let debugEnabled = false;
+
 function apply(ctx, config = {}) {
   const log = ctx.logger("sampling-params");
   liveConfig = config;
+  try {
+    debugEnabled =
+      Boolean(process.env.DSH_SAMPLING_DEBUG) ||
+      fs.existsSync(path.join(os.homedir(), ".dsh", "_sampling-debug-on"));
+  } catch {
+    debugEnabled = false;
+  }
 
   // Register a live settings scope on DSH 0.1.x, where `ctx.settings.register`
   // exists. On 0.2.x that method is gone (the settings service moved to a
@@ -161,6 +178,18 @@ function apply(ctx, config = {}) {
                 if (typeof model[key] === "number") body[key] = model[key];
               }
               init.body = JSON.stringify(body);
+              if (debugEnabled) {
+                try {
+                  const injected = {};
+                  for (const key of WIRE_KEYS) if (typeof model[key] === "number") injected[key] = model[key];
+                  fs.appendFileSync(
+                    path.join(os.homedir(), ".dsh", "_sampling-debug.log"),
+                    JSON.stringify({ ts: new Date().toISOString(), model: body.model, injected }) + "\n"
+                  );
+                } catch {
+                  // debug logging is best-effort; never break traffic
+                }
+              }
             }
           }
         }

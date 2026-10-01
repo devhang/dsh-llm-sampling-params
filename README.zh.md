@@ -112,6 +112,21 @@ curl "http://<host>:<port>/slots?model=<model-id>"
 
 返回 slot 的 `params` 物件反映 `temperature`、`top_p`、`top_k`、`min_p`、`repeat_penalty`、`presence_penalty` 和 `frequency_penalty`——與模型配置值相符即確認注入已達 server。
 
+## 除錯注入（任何 provider）
+
+要確認出向請求**真的**帶上 sampling 參數——對**任何** OpenAI 相容 provider 都適用，不只 llama-server——開啟內建 debug log：
+
+- 用 env `DSH_SAMPLING_DEBUG=1` 啟動 dsh，**或**建立 marker 檔 `~/.dsh/_sampling-debug-on`。
+- 重啟 dsh 讓 `apply()` 重讀開關。
+- 在 GUI 對話（選一個已配置的 alias）。
+- 每個注入的請求會 append 一行 JSON 到 `~/.dsh/_sampling-debug.log`：
+
+  ```json
+  {"ts":"2026-01-01T00:00:00.000Z","model":"model-i","injected":{"temperature":0.2,"top_p":0.8,"top_k":20,"min_p":0.05,"repeat_penalty":1.0,"presence_penalty":0.0,"frequency_penalty":0.0}}
+  ```
+
+- 取消：unset env / 刪 marker 檔（下次重啟生效）。log 是 best-effort，不影響請求。
+
 ## 相容性
 
 - 支援 dsh **0.1.x 與 0.2.x**——設定讀取路徑是 version-adaptive（0.1.x 用 `settings.register`、0.2.x 用 profile-entry config）。

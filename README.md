@@ -112,6 +112,21 @@ curl "http://<host>:<port>/slots?model=<model-id>"
 
 The `params` object of the returned slot reflects `temperature`, `top_p`, `top_k`, `min_p`, `repeat_penalty`, `presence_penalty`, and `frequency_penalty` — a match against the model's configured values confirms the injection reached the server.
 
+## Debugging the injection (any provider)
+
+To confirm the outgoing request actually carries the sampling params — works with **any** OpenAI-compatible provider, not just llama-server — enable the built-in debug log:
+
+- Start dsh with env `DSH_SAMPLING_DEBUG=1`, **or** create the marker file `~/.dsh/_sampling-debug-on`.
+- Restart dsh so `apply()` re-reads the switch.
+- Have a conversation in the GUI (select a configured alias).
+- Each injected request appends one JSON line to `~/.dsh/_sampling-debug.log`:
+
+  ```json
+  {"ts":"2026-01-01T00:00:00.000Z","model":"model-i","injected":{"temperature":0.2,"top_p":0.8,"top_k":20,"min_p":0.05,"repeat_penalty":1.0,"presence_penalty":0.0,"frequency_penalty":0.0}}
+  ```
+
+- Disable by unsetting the env / deleting the marker file (takes effect on the next restart). The log is best-effort and never affects the request.
+
 ## Compatibility
 
 - Supports dsh **0.1.x and 0.2.x** — the settings read path is version-adaptive (`settings.register` on 0.1.x, the profile-entry config on 0.2.x).
