@@ -1,4 +1,4 @@
-# dsh-llama-cpp-sampling-params — 最終實作設計
+# dsh-llm-sampling-params — 最終實作設計
 
 ## 目標
 
@@ -21,7 +21,7 @@
 ## 架構：`globalThis.fetch` wrapper
 
 ```js
-const WRAPPED = Symbol.for("dsh-llama-cpp-sampling-params.fetch-wrapped");
+const WRAPPED = Symbol.for("dsh-llm-sampling-params.fetch-wrapped");
 const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
 
 function apply(ctx, config = {}) {

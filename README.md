@@ -1,4 +1,4 @@
-# dsh-llama-cpp-sampling-params
+# dsh-llm-sampling-params
 
 A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) plugin that injects **per-model sampling parameters** into every chat-completions request sent to a local **llama.cpp / llama-server** gateway.
 
@@ -33,10 +33,10 @@ The plugin wraps `globalThis.fetch` at the transport layer:
 
 ```sh
 # From npm (once published)
-dsh plugin --profile web add dsh-llama-cpp-sampling-params
+dsh plugin --profile web add dsh-llm-sampling-params
 
 # From a local directory
-dsh plugin --profile web add link:C:/path/to/dsh-llama-cpp-sampling-params
+dsh plugin --profile web add link:C:/path/to/dsh-llm-sampling-params
 ```
 
 Then restart `dsh web` (or refresh the GUI page).
@@ -56,7 +56,7 @@ Add a top-level entry to your profile's `cordis.patch.yml` (edit `cordis.patch.y
 
 ```yaml
 - id: sampling-params
-  name: dsh-llama-cpp-sampling-params
+  name: dsh-llm-sampling-params
   config:
     models:
       # Key = the exact model id (alias) sent on the wire.

@@ -1,5 +1,5 @@
 /**
- * dsh-llama-cpp-sampling-params
+ * dsh-llm-sampling-params
  *
  * Injects per-model-alias sampling parameters into every chat-completions
  * request sent to an OpenAI-compatible local gateway (llama.cpp).
@@ -82,7 +82,7 @@ const Config = z.object({
 });
 
 // Mark so we never double-wrap globalThis.fetch (hot-reload safe).
-const WRAPPED = Symbol.for("dsh-llama-cpp-sampling-params.fetch-wrapped");
+const WRAPPED = Symbol.for("dsh-llm-sampling-params.fetch-wrapped");
 
 // The OpenAI-compatible chat-completions path we inject into. Only requests
 // whose URL carries this path are touched; everything else passes through

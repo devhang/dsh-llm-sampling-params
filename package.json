@@ -1,15 +1,15 @@
 {
-  "name": "dsh-llama-cpp-sampling-params",
+  "name": "dsh-llm-sampling-params",
   "version": "0.2.0",
-  "description": "DSH plugin: inject per-model sampling parameters (top_p, top_k, min_p, repeat_penalty, presence_penalty, frequency_penalty) into every chat-completions request sent to a local llama.cpp / llama-server gateway.",
+  "description": "DSH plugin: inject per-model sampling parameters (top_p, top_k, min_p, repeat_penalty/repetition_penalty, presence_penalty, frequency_penalty) into every chat-completions request sent to an OpenAI-compatible gateway (llama.cpp, SGLang, vLLM).",
   "author": "devhang",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/devhang/dsh-llama-cpp-sampling-params.git"
+    "url": "git+https://github.com/devhang/dsh-llm-sampling-params.git"
   },
-  "homepage": "https://github.com/devhang/dsh-llama-cpp-sampling-params#readme",
+  "homepage": "https://github.com/devhang/dsh-llm-sampling-params#readme",
   "bugs": {
-    "url": "https://github.com/devhang/dsh-llama-cpp-sampling-params/issues"
+    "url": "https://github.com/devhang/dsh-llm-sampling-params/issues"
   },
   "type": "module",
   "main": "index.js",
@@ -26,10 +26,14 @@
     "dsh-plugin",
     "llama.cpp",
     "llama-server",
+    "sglang",
+    "vllm",
+    "openai-compatible",
     "sampling",
     "top_p",
     "min_p",
-    "repeat_penalty"
+    "repeat_penalty",
+    "repetition_penalty"
   ],
   "license": "MIT",
   "dsh": {

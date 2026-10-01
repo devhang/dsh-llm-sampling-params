@@ -1,4 +1,4 @@
-# dsh-llama-cpp-sampling-params
+# dsh-llm-sampling-params
 
 一個 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）插件，將**每個模型的採樣參數**注入發送到本地 **llama.cpp / llama-server** 閘道的每個 chat-completions 請求。
 
@@ -33,10 +33,10 @@ dsh 的 `LlmCallConfig` 只帶 `temperature` / `maxTokens` / `stop`——從不�
 
 ```sh
 # 從 npm（發布後）
-dsh plugin --profile web add dsh-llama-cpp-sampling-params
+dsh plugin --profile web add dsh-llm-sampling-params
 
 # 從本地目錄
-dsh plugin --profile web add link:C:/path/to/dsh-llama-cpp-sampling-params
+dsh plugin --profile web add link:C:/path/to/dsh-llm-sampling-params
 ```
 
 然後重啟 `dsh web`（或刷新 GUI 頁面）。
@@ -56,7 +56,7 @@ dsh plugin --profile web add link:C:/path/to/dsh-llama-cpp-sampling-params
 
 ```yaml
 - id: sampling-params
-  name: dsh-llama-cpp-sampling-params
+  name: dsh-llm-sampling-params
   config:
     models:
       # 鍵 = 發送到 wire 的精確 model id（別名）。
