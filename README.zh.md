@@ -1,10 +1,10 @@
 # dsh-llm-sampling-params
 
-一個 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）插件，將**每個模型的採樣參數**注入發送到本地 **llama.cpp / llama-server** 閘道的每個 chat-completions 請求。
+一個 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）插件，將**每個模型的採樣參數**注入發送到 OpenAI 相容 LLM 閘道（llama.cpp、SGLang、vLLM）的每個 chat-completions 請求。
 
 ## 為什麼
 
-dsh 的 `LlmCallConfig` 只帶 `temperature` / `maxTokens` / `stop`——從不發送 `top_p`、`top_k`、`min_p`、`repeat_penalty`、`presence_penalty` 或 `frequency_penalty`。llama.cpp 全部支援這些**按請求**參數。本插件將匹配模型的採樣組蓋印到 chat-completions 呼叫的 wire body 上，讓你**切換模型別名**就能切換採樣行為（例如高溫創意角色 vs. 低溫編碼角色）——無需重新載入模型、不佔額外 VRAM。
+dsh 的 `LlmCallConfig` 只帶 `temperature` / `maxTokens` / `stop`——從不發送 `top_p`、`top_k`、`min_p`、`repeat_penalty`、`presence_penalty` 或 `frequency_penalty`。OpenAI 相容閘道（llama.cpp、SGLang、vLLM）全部支援這些**按請求**參數。本插件將匹配模型的採樣組蓋印到 chat-completions 呼叫的 wire body 上，讓你**切換模型別名**就能切換採樣行為（例如高溫創意角色 vs. 低溫編碼角色）——無需重新載入模型、不佔額外 VRAM。
 
 ## 運作原理
 
@@ -20,14 +20,14 @@ dsh 的 `LlmCallConfig` 只帶 `temperature` / `maxTokens` / `stop`——從不�
 
 ## 角色如何運作
 
-- llama.cpp 可將**一個已載入的 GGUF 以多個別名**（如 `model-i`、`model-p`、`model-t`）提供，全部指向相同的底層權重——切換別名**不佔額外 VRAM**。
+- 閘道可將**一個已載入的模型以多個別名**（如 `model-i`、`model-p`、`model-t`）提供，全部指向相同的底層權重——切換別名**不佔額外 VRAM**。（llama.cpp：`a =` alias 清單；vLLM：多個 `--served-model-name`；SGLang：單一 served name、寬鬆匹配。）
 - dsh 的 `llm-pi-ai` 將每個別名列為可選模型，切換 UI 裡的模型就選定採樣角色。
 - 本插件讀取每個請求的 `model` 欄位（別名），在 `sampling-params` 的 `models` 表查詢。**未配置的別名原樣通過。**
 
 ## 零衝突
 
 - dsh 已發送的欄位（`temperature` / `maxTokens`）留給 dsh，除非模型明確設定。
-- 其他採樣欄位是 dsh 從不發送的，因此沒有競爭來源——插件僅覆蓋 llama.cpp server 預設值。
+- 其他採樣欄位是 dsh 從不發送的，因此沒有競爭來源——插件僅覆蓋 server 預設值。
 
 ## 安裝
 
@@ -90,21 +90,21 @@ dsh plugin --profile web add link:C:/path/to/dsh-llm-sampling-params
 
 ## Wire 欄位名稱
 
-llama.cpp 使用 snake_case wire 名稱。**注意：** 重複懲罰是 `repeat_penalty`，**不是** `repetition_penalty`。
+wire body 使用 snake_case 名稱。配置的 `repeat_penalty` 會**同時**以 `repeat_penalty`（llama.cpp）和 `repetition_penalty`（SGLang / vLLM）兩個名稱送出，所以無論後端是哪家，正確的那個都會被採用。
 
-| 模型鍵 | llama.cpp wire 欄位 |
+| 模型鍵 | wire 欄位（送出） |
 |--------|---------------------|
 | `temperature` | `temperature` |
 | `top_p` | `top_p` |
 | `top_k` | `top_k` |
 | `min_p` | `min_p` |
-| `repeat_penalty` | `repeat_penalty` |
+| `repeat_penalty` | `repeat_penalty` + `repetition_penalty` |
 | `presence_penalty` | `presence_penalty` |
 | `frequency_penalty` | `frequency_penalty` |
 
 ## 驗證採樣已生效
 
-llama-server 的 `/slots` 端點回顯 server 實際採用的採樣參數。查詢模型以確認請求的採樣生效：
+llama.cpp 的 `/slots` 端點回顯 server 實際採用的採樣參數（llama.cpp 專屬；SGLang / vLLM 用下方的 debug log）。查詢模型以確認請求的採樣生效：
 
 ```sh
 curl "http://<host>:<port>/slots?model=<model-id>"
@@ -131,7 +131,7 @@ curl "http://<host>:<port>/slots?model=<model-id>"
 
 - 支援 dsh **0.1.x 與 0.2.x**——設定讀取路徑是 version-adaptive（0.1.x 用 `settings.register`、0.2.x 用 profile-entry config）。
 - 需要 dsh 內含 `@deepseek-ai/dsh-settings` 與 `@deepseek-ai/schemastery`（兩者隨 dsh 提供）。
-- 目標必須是遵循這些 wire 欄位的 OpenAI 相容閘道（llama.cpp `llama-server` 符合）。
+- 目標必須是遵循這些 wire 欄位的 OpenAI 相容閘道（llama.cpp、SGLang、vLLM 都符合）。
 - Wrapper 以 `Symbol.for` 標記保護，hot-reload 不會重複 wrap。
 
 ## 授權
