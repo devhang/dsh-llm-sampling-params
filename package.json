@@ -1,6 +1,6 @@
 {
   "name": "dsh-llm-sampling-params",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DSH plugin: inject per-model sampling parameters (top_p, top_k, min_p, repeat_penalty/repetition_penalty, presence_penalty, frequency_penalty) into every chat-completions request sent to an OpenAI-compatible gateway (llama.cpp, SGLang, vLLM).",
   "author": "devhang",
   "repository": {
