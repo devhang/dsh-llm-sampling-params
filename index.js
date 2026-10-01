@@ -177,11 +177,18 @@ function apply(ctx, config = {}) {
               for (const key of WIRE_KEYS) {
                 if (typeof model[key] === "number") body[key] = model[key];
               }
+              // SGLang names the repetition penalty `repetition_penalty` (llama.cpp
+              // uses `repeat_penalty`). Send both so the right one is honored regardless
+              // of backend; each server ignores the name it does not know.
+              if (typeof model.repeat_penalty === "number") {
+                body.repetition_penalty = model.repeat_penalty;
+              }
               init.body = JSON.stringify(body);
               if (debugEnabled) {
                 try {
                   const injected = {};
                   for (const key of WIRE_KEYS) if (typeof model[key] === "number") injected[key] = model[key];
+                  if (typeof model.repeat_penalty === "number") injected.repetition_penalty = model.repeat_penalty;
                   fs.appendFileSync(
                     path.join(os.homedir(), ".dsh", "_sampling-debug.log"),
                     JSON.stringify({ ts: new Date().toISOString(), model: body.model, injected }) + "\n"
