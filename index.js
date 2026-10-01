@@ -23,6 +23,16 @@
  * the transport layer, below all of those abstractions, and simply rewrites
  * the already-built JSON body before it leaves the process.
  *
+ * Config source across DSH versions: the `models` table is the plugin's
+ * settings. On DSH 0.1.x the plugin registers that section with
+ * `ctx.settings.register(...)` and reads it live via the returned scope. On
+ * 0.2.x the settings service was rebuilt around a profile-entry model
+ * (`describe` / `mutate` / `configure`) and no longer exposes `register`; a
+ * settings edit restarts the plugin fiber and re-runs `apply(ctx, config)`
+ * with the new config, so the plugin caches that config in a module-level
+ * `liveConfig` and reads it there. `apply` detects which path is available at
+ * runtime, so the same code works on both.
+ *
  * Zero conflict: the fields dsh already sends (temperature / maxTokens) are
  * left to dsh unless a model explicitly sets them; every other sampling field
  * is one dsh never sends, so there is no competing source.
@@ -76,31 +86,59 @@ const WRAPPED = Symbol.for("dsh-llama-cpp-sampling-params.fetch-wrapped");
 // byte-identical.
 const CHAT_COMPLETIONS_PATH = "/v1/chat/completions";
 
+// Module-level live config, refreshed on every apply() call. Under DSH 0.2.x a
+// settings edit restarts the plugin fiber and re-runs apply() with the new
+// config, so this always reflects the latest `models` table. Under 0.1.x the
+// registered settings scope (created inside apply below) is the live source
+// instead and this only holds the initial value.
+let liveConfig = { models: {} };
+
 function apply(ctx, config = {}) {
   const log = ctx.logger("sampling-params");
+  liveConfig = config;
 
-  // Register the settings section live so role values can be edited without
-  // a restart. NOTE: we pass the namespace as a plain string, not via
-  // `settingsNamespace()` from @deepseek-ai/dsh-settings — the export was
-  // added in 0.1.1 and is absent in some older/newer versions, so importing
-  // it directly breaks plugin load on those dsh builds.
-  const scope = ctx.settings.register("sampling-params", Config, {
-    base: config,
-    applies: "live",
-  });
-
-  // Read the sampling set for one exact model id/alias.
-  const readModel = (modelId) => {
+  // Register a live settings scope on DSH 0.1.x, where `ctx.settings.register`
+  // exists. On 0.2.x that method is gone (the settings service moved to a
+  // profile-entry model: describe / mutate / configure), so scope stays null
+  // and readModel below falls back to the config that 0.2.x re-passes to apply
+  // on every restart. The namespace is passed as a plain string (not via
+  // `settingsNamespace()`) so importing it never breaks plugin load.
+  let scope = null;
+  const settings = ctx.settings;
+  if (settings && typeof settings.register === "function") {
     try {
-      const section = scope.get();
-      return section?.models?.[modelId];
+      scope = settings.register("sampling-params", Config, { base: config, applies: "live" });
+    } catch (error) {
+      log.warn(`sampling-params settings.register failed; using config param: ${error?.message ?? error}`);
+      scope = null;
+    }
+  }
+
+  // Read the sampling set for one exact model id/alias. Prefer the live scope
+  // (0.1.x); otherwise read the latest config passed to apply (0.2.x restart).
+  const readModel = (modelId) => {
+    if (scope) {
+      try {
+        const model = scope.get()?.models?.[modelId];
+        if (model) return model;
+      } catch {
+        // fall through to the config-param path
+      }
+    }
+    try {
+      return liveConfig?.models?.[modelId];
     } catch {
       return undefined;
     }
   };
 
   const registeredModels = (() => {
-    try { return Object.keys(scope.get()?.models ?? {}); } catch { return []; }
+    try {
+      const models = scope ? (scope.get()?.models ?? {}) : (liveConfig?.models ?? {});
+      return Object.keys(models);
+    } catch {
+      return [];
+    }
   })();
   log.info(`sampling-params applied (fetch wrapper); models=${registeredModels.length}`);
 
