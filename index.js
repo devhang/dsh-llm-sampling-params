@@ -2,12 +2,13 @@
  * dsh-llm-sampling-params
  *
  * Injects per-model-alias sampling parameters into every chat-completions
- * request sent to an OpenAI-compatible local gateway (llama.cpp).
+ * request sent to an OpenAI-compatible LLM gateway (llama.cpp, SGLang, vLLM).
  *
  * How models work:
- *   - llama.cpp serves ONE loaded model under several aliases (e.g.
- *     `model-i`, `model-p`, `model-t`) that all point at the same underlying
- *     GGUF — so there is NO extra VRAM cost.
+ *   - An OpenAI-compatible gateway serves ONE loaded model under several
+ *     aliases (e.g. `model-i`, `model-p`, `model-t`) that all point at the
+ *     same underlying weights — so there is NO extra VRAM cost. (llama.cpp:
+ *     `a =` alias list; vLLM: multiple `--served-model-name`.)
  *   - dsh's `llm-pi-ai` lists each alias as a separate selectable model, so
  *     switching model in the UI picks a sampling role.
  *   - This plugin reads the `model` field of each request (the alias) and
@@ -45,8 +46,9 @@ import path from "node:path";
 const name = "sampling-params";
 const inject = ["settings"];
 
-// llama.cpp wire field names (snake_case). NOTE: repetition penalty is
-// `repeat_penalty` on llama.cpp, NOT `repetition_penalty`.
+// Wire field names (snake_case). The config uses `repeat_penalty`; the wire
+// body sends BOTH `repeat_penalty` (llama.cpp) and `repetition_penalty`
+// (SGLang / vLLM) so the right one is honored regardless of backend.
 const WIRE_KEYS = [
   "temperature",
   "top_p",

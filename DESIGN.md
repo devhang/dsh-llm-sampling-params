@@ -207,7 +207,7 @@ a = base-model-i, base-model-p, base-model-t
 
 ## 發布
 
-- `npm publish`：0.1.1 已發布；**0.2.0 待發布**（sandbox 無 npm creds，需 `npm login` + `npm publish`）。
+- `npm publish`：0.1.1 / 0.2.0 已發布（舊名 `dsh-llama-cpp-sampling-params`）；改名 `dsh-llm-sampling-params` 待發布（sandbox 無 npm creds）。
 - [ ] 提交 `dsh-market` / `awesome-dsh-plugin` 目錄（GitHub PR）
 
 ## 本地開發迴路

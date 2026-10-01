@@ -1,10 +1,10 @@
 # dsh-llm-sampling-params
 
-A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) plugin that injects **per-model sampling parameters** into every chat-completions request sent to a local **llama.cpp / llama-server** gateway.
+A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`) plugin that injects **per-model sampling parameters** into every chat-completions request sent to an OpenAI-compatible LLM gateway (llama.cpp, SGLang, vLLM).
 
 ## Why
 
-dsh's `LlmCallConfig` only carries `temperature` / `maxTokens` / `stop` — it never sends `top_p`, `top_k`, `min_p`, `repeat_penalty`, `presence_penalty`, or `frequency_penalty`. llama.cpp accepts all of these **per request**. This plugin stamps the matching model's sampling set onto the wire body of chat-completions calls, so you can switch sampling behavior (e.g. a high-temperature creative role vs. a low-temperature coding role) **by switching the model alias** — no model reload, no extra VRAM.
+dsh's `LlmCallConfig` only carries `temperature` / `maxTokens` / `stop` — it never sends `top_p`, `top_k`, `min_p`, `repeat_penalty`, `presence_penalty`, or `frequency_penalty`. OpenAI-compatible gateways (llama.cpp, SGLang, vLLM) accept all of these **per request**. This plugin stamps the matching model's sampling set onto the wire body of chat-completions calls, so you can switch sampling behavior (e.g. a high-temperature creative role vs. a low-temperature coding role) **by switching the model alias** — no model reload, no extra VRAM.
 
 ## How it works
 
@@ -20,14 +20,14 @@ The plugin wraps `globalThis.fetch` at the transport layer:
 
 ## How roles work
 
-- llama.cpp can serve **one loaded GGUF under several aliases** (e.g. `model-i`, `model-p`, `model-t`), all pointing at the same underlying weights — so switching alias costs **no extra VRAM**.
+- A gateway can serve **one loaded model under several aliases** (e.g. `model-i`, `model-p`, `model-t`), all pointing at the same underlying weights — so switching alias costs **no extra VRAM**. (llama.cpp: `a =` alias list; vLLM: multiple `--served-model-name`; SGLang: single served name with lenient matching.)
 - dsh's `llm-pi-ai` lists each alias as a separate selectable model, so switching the model in the UI picks a sampling role.
 - This plugin reads the `model` field of each request (the alias) and looks it up in the `sampling-params` `models` table. **Unconfigured aliases pass through untouched.**
 
 ## Zero conflict
 
 - The fields dsh already sends (`temperature` / `maxTokens`) are left to dsh unless a model explicitly sets them.
-- Every other sampling field is one dsh never sends, so there is no competing source — the plugin simply overrides the llama.cpp server default.
+- Every other sampling field is one dsh never sends, so there is no competing source — the plugin simply overrides the server default.
 
 ## Install
 
@@ -90,21 +90,21 @@ This plugin **never hardcodes an LLM port**. It matches on the `/v1/chat/complet
 
 ## Wire field names
 
-llama.cpp uses snake_case wire names. **Note:** repetition penalty is `repeat_penalty`, **not** `repetition_penalty`.
+The wire body uses snake_case names. The config's `repeat_penalty` is sent as **both** `repeat_penalty` (llama.cpp) and `repetition_penalty` (SGLang / vLLM), so the right one is honored regardless of backend.
 
-| Model key | llama.cpp wire field |
+| Model key | wire field(s) sent |
 |-----------|----------------------|
 | `temperature` | `temperature` |
 | `top_p` | `top_p` |
 | `top_k` | `top_k` |
 | `min_p` | `min_p` |
-| `repeat_penalty` | `repeat_penalty` |
+| `repeat_penalty` | `repeat_penalty` + `repetition_penalty` |
 | `presence_penalty` | `presence_penalty` |
 | `frequency_penalty` | `frequency_penalty` |
 
 ## Verifying the sampling was applied
 
-llama-server's `/slots` endpoint echoes the sampling parameters the server actually adopted. Query it for a model to confirm a request's sampling took effect:
+llama.cpp's `/slots` endpoint echoes the sampling parameters the server actually adopted (llama.cpp-specific; for SGLang / vLLM use the debug log below). Query it for a model to confirm a request's sampling took effect:
 
 ```sh
 curl "http://<host>:<port>/slots?model=<model-id>"
@@ -131,7 +131,7 @@ To confirm the outgoing request actually carries the sampling params — works w
 
 - Supports dsh **0.1.x and 0.2.x** — the settings read path is version-adaptive (`settings.register` on 0.1.x, the profile-entry config on 0.2.x).
 - Requires dsh with `@deepseek-ai/dsh-settings` and `@deepseek-ai/schemastery` (both ship with dsh).
-- Target must be an OpenAI-compatible gateway that honors these wire fields (llama.cpp `llama-server` does).
+- Target must be an OpenAI-compatible gateway that honors these wire fields (llama.cpp, SGLang, and vLLM do).
 - The wrapper is guarded by a `Symbol.for` flag so hot-reload never double-wraps.
 
 ## License
