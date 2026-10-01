@@ -38,7 +38,7 @@ globalThis.fetch = originalFetch;
 async function callFetch(model) {
   capturedFetch = null;
   const body = { model, messages: [{ role: "user", content: "hi" }], temperature: 1.0 };
-  await wrappedFetch("http://127.0.0.1:8181/v1/chat/completions", {
+  await wrappedFetch("http://localhost:<PORT>/v1/chat/completions", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -102,7 +102,7 @@ let allPassed = true;
 {
   capturedFetch = null;
   const body = { model: "model-t", prompt: "hi" };
-  await wrappedFetch("http://127.0.0.1:8181/v1/completion", {
+  await wrappedFetch("http://localhost:<PORT>/v1/completion", {
     method: "POST",
     body: JSON.stringify(body),
   });
