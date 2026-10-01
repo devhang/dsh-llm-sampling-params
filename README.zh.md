@@ -43,37 +43,44 @@ dsh plugin --profile web add link:C:/path/to/dsh-llama-cpp-sampling-params
 
 ## 配置模型
 
-在 `$DSH_HOME/settings.yaml` 設定每個模型的採樣表。該區段**即時生效**——修改無需重啟。
+`models` 表放在你的 dsh 設定裡。**放哪裡取決於你的 dsh 版本：**
+
+| dsh | 表放哪裡 |
+|-----|---------|
+| **0.2.x** | profile 的 `cordis.patch.yml`，作為頂層 `sampling-params` entry |
+| **0.1.x** | `$DSH_HOME/settings.yaml` 的 `sampling-params:` 區段（即時生效） |
+
+### DSH 0.2.x
+
+在 profile 的 `cordis.patch.yml` 加一個頂層 entry（改 `cordis.patch.yml`，不是 `cordis.yml`）。`id: sampling-params` 是 binding key，必須與插件 namespace 相符：
 
 ```yaml
-sampling-params:
-  models:
-    # 鍵 = 發送到 wire 的精確 model id（別名）。
-    model-t:   # Think
-      temperature: 0.6
-      top_p: 0.95
-      top_k: 20
-      min_p: 0.05
-      repeat_penalty: 1.0
-      presence_penalty: 0.0
-      frequency_penalty: 0.0
-    model-i:   # Instruct
-      temperature: 0.2
-      top_p: 0.8
-      top_k: 20
-      min_p: 0.05
-      repeat_penalty: 1.0
-      presence_penalty: 0.0
-      frequency_penalty: 0.0
-    model-p:   # Planner
-      temperature: 1.0
-      top_p: 0.95
-      top_k: 20
-      min_p: 0.0
-      repeat_penalty: 1.0
-      presence_penalty: 0.0
-      frequency_penalty: 0.0
+- id: sampling-params
+  name: dsh-llama-cpp-sampling-params
+  config:
+    models:
+      # 鍵 = 發送到 wire 的精確 model id（別名）。
+      model-t:   # Think
+        temperature: 0.6
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.05
+        repeat_penalty: 1.0
+        presence_penalty: 0.0
+        frequency_penalty: 0.0
+      model-i:   # Instruct
+        temperature: 0.2
+        top_p: 0.8
+        top_k: 20
+        min_p: 0.05
+        repeat_penalty: 1.0
+        presence_penalty: 0.0
+        frequency_penalty: 0.0
 ```
+
+### 從 0.1.x 遷移到 0.2.x
+
+升級 dsh 到 0.2.x 會把 `$DSH_HOME/settings.yaml` 改名成 `settings.yaml.imported`（凍結備份，不再讀取），你的 `sampling-params.models` 表就擱淺在那裡。要遷移：把 `models:` 區塊從 `settings.yaml.imported` 抽出，加進 profile 的 `cordis.patch.yml` 作為 `sampling-params` entry，並將該區塊**+2 空格**縮排以嵌在 `config:` 下。一次性自動 import 不會重跑，所以要手動搬（或經設定 UI）。
 
 > 每個模型是**完整**採樣組——每個欄位必填，因此為每個別名配置全部七個數值。
 
@@ -107,6 +114,7 @@ curl "http://<host>:<port>/slots?model=<model-id>"
 
 ## 相容性
 
+- 支援 dsh **0.1.x 與 0.2.x**——設定讀取路徑是 version-adaptive（0.1.x 用 `settings.register`、0.2.x 用 profile-entry config）。
 - 需要 dsh 內含 `@deepseek-ai/dsh-settings` 與 `@deepseek-ai/schemastery`（兩者隨 dsh 提供）。
 - 目標必須是遵循這些 wire 欄位的 OpenAI 相容閘道（llama.cpp `llama-server` 符合）。
 - Wrapper 以 `Symbol.for` 標記保護，hot-reload 不會重複 wrap。

@@ -1,6 +1,6 @@
 {
   "name": "dsh-llama-cpp-sampling-params",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "DSH plugin: inject per-model sampling parameters (top_p, top_k, min_p, repeat_penalty, presence_penalty, frequency_penalty) into every chat-completions request sent to a local llama.cpp / llama-server gateway.",
   "author": "devhang",
   "repository": {

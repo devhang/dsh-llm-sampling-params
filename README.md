@@ -43,37 +43,44 @@ Then restart `dsh web` (or refresh the GUI page).
 
 ## Configure models
 
-Set the per-model sampling table in `$DSH_HOME/settings.yaml`. The section applies **live** — edits take effect without a restart.
+The `models` table lives in your dsh settings. **Where it goes depends on your dsh version:**
+
+| dsh | where the table goes |
+|-----|----------------------|
+| **0.2.x** | the profile's `cordis.patch.yml`, as a top-level `sampling-params` entry |
+| **0.1.x** | `$DSH_HOME/settings.yaml`, under a `sampling-params:` section (applies live) |
+
+### DSH 0.2.x
+
+Add a top-level entry to your profile's `cordis.patch.yml` (edit `cordis.patch.yml`, not `cordis.yml`). The `id: sampling-params` is the binding key and must match the plugin's namespace:
 
 ```yaml
-sampling-params:
-  models:
-    # Key = the exact model id (alias) sent on the wire.
-    model-t:   # Think
-      temperature: 0.6
-      top_p: 0.95
-      top_k: 20
-      min_p: 0.05
-      repeat_penalty: 1.0
-      presence_penalty: 0.0
-      frequency_penalty: 0.0
-    model-i:   # Instruct
-      temperature: 0.2
-      top_p: 0.8
-      top_k: 20
-      min_p: 0.05
-      repeat_penalty: 1.0
-      presence_penalty: 0.0
-      frequency_penalty: 0.0
-    model-p:   # Planner
-      temperature: 1.0
-      top_p: 0.95
-      top_k: 20
-      min_p: 0.0
-      repeat_penalty: 1.0
-      presence_penalty: 0.0
-      frequency_penalty: 0.0
+- id: sampling-params
+  name: dsh-llama-cpp-sampling-params
+  config:
+    models:
+      # Key = the exact model id (alias) sent on the wire.
+      model-t:   # Think
+        temperature: 0.6
+        top_p: 0.95
+        top_k: 20
+        min_p: 0.05
+        repeat_penalty: 1.0
+        presence_penalty: 0.0
+        frequency_penalty: 0.0
+      model-i:   # Instruct
+        temperature: 0.2
+        top_p: 0.8
+        top_k: 20
+        min_p: 0.05
+        repeat_penalty: 1.0
+        presence_penalty: 0.0
+        frequency_penalty: 0.0
 ```
+
+### Migrating from 0.1.x to 0.2.x
+
+Upgrading dsh to 0.2.x renames `$DSH_HOME/settings.yaml` to `settings.yaml.imported` (a frozen backup, no longer read). Your `sampling-params.models` table is stranded there. To migrate, copy the `models:` block out of `settings.yaml.imported` and add it as the `sampling-params` entry in your profile's `cordis.patch.yml`, re-indenting the block by **+2 spaces** to nest under `config:`. The one-time auto-import does not re-run, so do this by hand (or via the settings UI).
 
 > Each model is a **complete** sampling set — every field is required, so configure each alias with all seven numbers.
 
@@ -107,6 +114,7 @@ The `params` object of the returned slot reflects `temperature`, `top_p`, `top_k
 
 ## Compatibility
 
+- Supports dsh **0.1.x and 0.2.x** — the settings read path is version-adaptive (`settings.register` on 0.1.x, the profile-entry config on 0.2.x).
 - Requires dsh with `@deepseek-ai/dsh-settings` and `@deepseek-ai/schemastery` (both ship with dsh).
 - Target must be an OpenAI-compatible gateway that honors these wire fields (llama.cpp `llama-server` does).
 - The wrapper is guarded by a `Symbol.for` flag so hot-reload never double-wraps.

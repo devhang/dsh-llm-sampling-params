@@ -170,12 +170,12 @@ a = base-model-i, base-model-p, base-model-t
 
 1. **Peer-dep gate 擋住 load**：0.2.0 在 bundle composition 階段對 peerDependency 不相容的插件做 skip。本插件 `package.json` 的 peer `@deepseek-ai/dsh-settings` 原範圍 `>=0.1.1-rc.1 <0.2.0-0` 不匹配 0.2.x 運行時（如 `0.2.0-rc.2`），插件被 **skip** → `apply()` 從未執行 → fetch wrapper 從未安裝。
    - 診斷：`dsh --profile <name> --dump-config` 會在 stderr 印出 skip 訊息。
-   - 正解：放寬 peer range（已改 `>=0.1.1-rc.1 <0.3.0-0`，v0.1.2）；`dsh plugin allow-version` 只是單一版本豁免的暫解。
+   - 正解：放寬 peer range（已改 `>=0.1.1-rc.1 <0.3.0-0`，v0.2.0）；`dsh plugin allow-version` 只是單一版本豁免的暫解。
 2. **設定服務 API 破壞性變更**：0.2.0 的 `@deepseek-ai/dsh-settings` 重建為 profile-entry 模型（`configure` / `describe` / `update` / `replace` / `mutate` / `writable`），**移除了 `register(namespace, Schema, {base, applies})`**；`applies: "live"` 變成 `describe()` 的輸出欄位、不再是 register 輸入。原 `apply()` 呼叫 `ctx.settings.register(...).get()` → 0.2.0 下 `register` 不存在 → `TypeError: ctx.settings.register is not a function` → `apply()` 拋錯 → fetch wrapper 仍未安裝。**這與原因 #1 獨立**：就算用 `allow-version` 解鎖了 skip，apply() 仍會在此掛掉。
    - 0.2.0 下插件的 live config 由 fiber 重啟餵入：`fiber.update(config)` → `internal/update` → `this.config = config` + `restart()` → **`apply(ctx, config)` 重跑並餵入新 config**。
 3. **設定資料遷移到 `.imported`**：0.2.0 把 `<home>/settings.yaml` rename 成 `settings.yaml.imported`、逐 section 寫入各 entry 後，`settings.yaml` 不再被讀取；live 設定改放 **profile 的 `cordis.patch.yml`**。本插件的 `sampling-params.models`（一表 N 個 alias）只留在 `settings.yaml.imported`，而 profile 的 `cordis.patch.yml` 沒有對應 entry → 即使插件 load 了、apply() 跑完了，`models` 仍是空的（預設 `{}`）。這是**資料**遷移，非程式碼問題。
 
-**修正（v0.1.2，已完成並驗證）：**
+**修正（v0.2.0，已完成並驗證）：**
 - (A) **放寬 peer range**：`@deepseek-ai/dsh-settings: >=0.1.1-rc.1 <0.3.0-0`（涵蓋 0.2.0-rc.x），解開原因 #1 的 skip。
 - (B) **`apply()` 改為 version-adaptive**：module-level `liveConfig`（每次 `apply()` 更新；對應 0.2.0 的 restart 餵新 config），並偵測 `ctx.settings.register` 是否存在——存在（0.1.x）走 `scope.get()` live 路徑；不存在（0.2.0）走 `liveConfig`。同一份程式碼跨 0.1.x / 0.2.0 成立，解開原因 #2。
 - (C) **資料遷移（待使用者做）**：把 `sampling-params.models` 補進 profile 的 `cordis.patch.yml`（或經插件設定 UI），解開原因 #3。`.imported` 不會自動重 import。
