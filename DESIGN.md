@@ -178,9 +178,9 @@ a = base-model-i, base-model-p, base-model-t
 **修正（v0.2.0，已完成並驗證）：**
 - (A) **放寬 peer range**：`@deepseek-ai/dsh-settings: >=0.1.1-rc.1 <0.3.0-0`（涵蓋 0.2.0-rc.x），解開原因 #1 的 skip。
 - (B) **`apply()` 改為 version-adaptive**：module-level `liveConfig`（每次 `apply()` 更新；對應 0.2.0 的 restart 餵新 config），並偵測 `ctx.settings.register` 是否存在——存在（0.1.x）走 `scope.get()` live 路徑；不存在（0.2.0）走 `liveConfig`。同一份程式碼跨 0.1.x / 0.2.0 成立，解開原因 #2。
-- (C) **資料遷移（待使用者做）**：把 `sampling-params.models` 補進 profile 的 `cordis.patch.yml`（或經插件設定 UI），解開原因 #3。`.imported` 不會自動重 import。
+- (C) **資料遷移（per-profile，使用者做）**：把 `sampling-params.models` 補進 profile 的 `cordis.patch.yml`（或經插件設定 UI），解開原因 #3。`.imported` 不會自動重 import。web profile 已遷移（27 個 alias，`--dump-config` 確認載入）。
 
-**驗證**：`test-alias.mjs`（0.1.x：`register` + `scope.get()`）與 `test-020.mjs`（0.2.x：無 `register`、`liveConfig`、模擬 restart 更新）皆通過；`dsh --profile web --dump-config` 確認本插件不再被 skip、`config.models` entry 出現、無相關錯誤。
+**驗證**：`test-alias.mjs`（0.1.x：`register` + `scope.get()`）與 `test-020.mjs`（0.2.x：無 `register`、`liveConfig`、模擬 restart 更新）皆通過；`dsh --profile web --dump-config` 確認本插件不再被 skip、`config.models` entry 出現且 27 個 alias 全數載入、無相關錯誤。
 
 ### 0.2.0 有沒有更乾淨的 seam（fetch-wrapper 是否多餘）
 
@@ -207,7 +207,7 @@ a = base-model-i, base-model-p, base-model-t
 
 ## 發布
 
-- ~~`npm publish`~~ ✅ 已完成（`dsh-llama-cpp-sampling-params`，latest）
+- `npm publish`：0.1.1 已發布；**0.2.0 待發布**（sandbox 無 npm creds，需 `npm login` + `npm publish`）。
 - [ ] 提交 `dsh-market` / `awesome-dsh-plugin` 目錄（GitHub PR）
 
 ## 本地開發迴路
